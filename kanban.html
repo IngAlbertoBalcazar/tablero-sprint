@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tablero del sprint</title>
+<style>
+:root{--bg:#eef1f4;--col:#e2e7ec;--card:#fff;--tx:#1b2733;--mu:#65758a;--bd:#d3dae2;--ac:#0f766e;--d0:#2563eb;--d1:#e11d48;--d2:#d97706}
+@media(prefers-color-scheme:dark){:root{--bg:#10171e;--col:#18222c;--card:#1f2c39;--tx:#e8eef4;--mu:#93a4b8;--bd:#2c3b4b;--ac:#2dd4bf;--d0:#60a5fa;--d1:#fb7185;--d2:#fbbf24}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 "Trebuchet MS","Segoe UI",system-ui,sans-serif;padding:20px}
+header{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:end;justify-content:space-between;margin-bottom:18px}
+h1{margin:0;font:700 28px Georgia,serif}
+.sub{color:var(--mu);margin-top:2px}
+.bar{height:8px;background:var(--col);border-radius:4px;overflow:hidden;width:220px;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--ac)}
+nav{display:flex;flex-wrap:wrap;gap:8px}
+button,a.btn{font:inherit;padding:7px 13px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:6px;cursor:pointer;text-decoration:none}
+button:hover,a.btn:hover{border-color:var(--ac)}
+.p{background:var(--ac);border-color:var(--ac);color:#fff}
+@media(prefers-color-scheme:dark){.p{color:#06201d}}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+#b{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+@media(max-width:900px){#b{grid-template-columns:1fr 1fr}}@media(max-width:560px){#b{grid-template-columns:1fr}}
+.col{background:var(--col);border-radius:10px;padding:10px;min-height:160px}
+.col.over{outline:2px dashed var(--ac)}
+h3{margin:2px 4px 10px;display:flex;justify-content:space-between;font-size:15px}
+h3 span{color:var(--mu);font-weight:400}
+.card{background:var(--card);border-radius:8px;padding:10px 12px;margin-bottom:8px;border-left:5px solid var(--c);cursor:grab;box-shadow:0 1px 2px #0002}
+.card:active{cursor:grabbing}
+.m{display:flex;justify-content:space-between;color:var(--mu);font-size:13px;margin-top:6px}
+.empty{color:var(--mu);text-align:center;padding:16px 4px;font-size:13px}
+dialog{border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);width:min(420px,92vw);padding:20px}
+dialog::backdrop{background:#0008}
+label{display:block;margin:10px 0 3px;color:var(--mu);font-size:13px}
+textarea{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);resize:vertical}
+.nt{color:var(--mu);font-size:13px;margin-top:4px;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pb{height:5px;background:var(--col);border-radius:3px;margin-top:6px;overflow:hidden}.pb i{display:block;height:100%;background:var(--ac)}
+input,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx)}
+.r{display:flex;gap:8px;margin-top:16px}.r .sp{flex:1}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style></head><body>
+<header>
+ <div><h1 id="t"></h1><div class="sub" id="r"></div><div class="bar"><i id="pb"></i></div><div class="sub" id="s"></div><div class="sub" id="st">Conectando…</div></div>
+ <nav>
+  <button class="p" onclick="openTask()">Nueva tarea</button>
+  <a class="btn" id="bd" href="burndown.html">Ver burndown</a>
+  <button onclick="openCfg()">Sprint y equipo</button>
+  <button onclick="askCode()">Código del equipo</button>
+  <button onclick="exp()">Respaldo (.txt)</button>
+  <button onclick="fi.click()">Importar sprint</button>
+  <input type="file" id="fi" accept=".txt,.json" hidden>
+ </nav>
+</header>
+<main id="b"></main>
+
+<dialog id="dt">
+ <label>Tarea</label><input id="ti">
+ <div class="g"><div><label>Estimación (horas)</label><input id="es" type="number" min="0" step="0.5"></div>
+ <div><label>Responsable</label><select id="dv"></select></div></div>
+ <label>% de avance (en Hecho o Aprobado cuenta 100%)</label><input id="pc" type="number" min="0" max="100" step="5">
+ <label>Columna</label><select id="cl"></select>
+ <label>Notas</label><textarea id="nt" rows="3" placeholder="Detalles, bloqueos, comentarios de QA…"></textarea>
+ <div class="r"><button class="p" onclick="saveTask()">Guardar</button><button onclick="dt.close()">Cancelar</button><span class="sp"></span><button id="del" onclick="delTask()">Eliminar</button></div>
+</dialog>
+
+<dialog id="dc">
+ <label>Nombre del sprint</label><input id="cn">
+ <div class="g"><div><label>Inicio</label><input id="cs" type="date"></div><div><label>Fin</label><input id="ce" type="date"></div></div>
+ <label>Integrantes</label>
+ <input id="n0" placeholder="Persona 1"><input id="n1" placeholder="Persona 2" style="margin-top:6px"><input id="n2" placeholder="Persona 3" style="margin-top:6px">
+ <div class="r"><button class="p" onclick="saveCfg()">Guardar</button><button onclick="dc.close()">Cancelar</button></div>
+</dialog>
+
+<script src="config.js"></script>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getDatabase,ref,onValue,update,set,remove} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+const COLS=[['todo','Por hacer'],['doing','En progreso'],['done','Hecho (en QA)'],['approved','Aprobado']];
+const fin=c=>c=='done'||c=='approved',$=id=>document.getElementById(id),sum=a=>a.reduce((s,t)=>s+(+t.est||0),0);
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const fmt=s=>s.split('-').reverse().join('/');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const remT=t=>fin(t.col)?0:t.est*(1-(t.pct||0)/100),rem=()=>Math.round(S.tasks.reduce((s,t)=>s+remT(t),0)*10)/10;
+if(!window.FB_CONFIG||!FB_CONFIG.databaseURL||FB_CONFIG.databaseURL.includes('PEGA')){document.body.innerHTML='<p style="padding:24px">Falta configurar <b>config.js</b> con la URL de tu Firebase.</p>';throw 0}
+let code=localStorage.getItem('teamcode');
+function askCode(){const c=(prompt('Código del equipo (igual para los tres; 8+ letras o números, sin espacios):',code||'')||'').trim();
+ if(/^[A-Za-z0-9_-]{8,}$/.test(c)){localStorage.setItem('teamcode',c);location.reload()}else alert('Código no válido.')}
+if(!code){askCode();throw 0}
+$('bd').href='burndown.html?c='+code;
+const db=getDatabase(initializeApp(FB_CONFIG)),R=p=>ref(db,'boards/'+code+(p?'/'+p:''));
+let S={name:'Sprint 1',start:iso(new Date()),end:iso(new Date(Date.now()+12096e5)),devs:['Dev 1','Dev 2','Dev 3'],tasks:[]},hasMeta=false,editId=null;
+onValue(ref(db,'.info/connected'),x=>$('st').textContent=x.val()?'● En línea (cambios en vivo)':'○ Sin conexión');
+onValue(R(),x=>{const v=x.val()||{},m=v.meta;hasMeta=!!m;
+ if(m)Object.assign(S,{name:m.name,start:m.start,end:m.end,devs:m.devs});
+ S.tasks=Object.entries(v.tasks||{}).map(([id,t])=>({...t,id}));render();
+ const d=iso(new Date()),q=rem();if(S.tasks.length&&(v.snap||{})[d]!==q)set(R('snap/'+d),q)});
+function render(){
+ $('t').textContent=S.name;$('r').textContent=fmt(S.start)+' al '+fmt(S.end);
+ const tot=sum(S.tasks),dn=Math.round((tot-rem())*10)/10,p=tot?Math.round(dn/tot*100):0;
+ $('pb').style.width=p+'%';$('s').textContent=dn+' de '+tot+' h de avance ('+p+'%)';
+ $('b').innerHTML=COLS.map(([c,n])=>{
+  const ts=S.tasks.filter(t=>t.col==c);
+  return `<section class="col" data-c="${c}"><h3>${n}<span>${ts.length} tareas · ${sum(ts)} h</span></h3>`+
+  (ts.map(t=>`<div class="card" draggable="true" data-id="${t.id}" style="--c:${t.dev<0?'var(--mu)':'var(--d'+t.dev+')'}"><b>${esc(t.title)}</b>${t.note?`<div class="nt">${esc(t.note)}</div>`:''}<div class="m"><span>${t.dev<0?'Sin asignar':esc(S.devs[t.dev]||'')}</span><span>${t.est} h${t.pct&&!fin(c)?' · '+t.pct+'%':''}</span></div>${t.pct&&!fin(c)?`<div class="pb"><i style="width:${t.pct}%"></i></div>`:''}</div>`).join('')||'<div class="empty">Arrastra tareas aquí</div>')+'</section>';
+ }).join('');
+}
+const b=$('b'),w=(id,o)=>update(R('tasks/'+id),o);
+b.addEventListener('dragstart',e=>{const c=e.target.closest('.card');if(c)e.dataTransfer.setData('text',c.dataset.id)});
+b.addEventListener('dragover',e=>{const c=e.target.closest('.col');if(c){e.preventDefault();document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));c.classList.add('over')}});
+b.addEventListener('drop',e=>{e.preventDefault();const c=e.target.closest('.col');if(c)move(e.dataTransfer.getData('text'),c.dataset.c)});
+b.addEventListener('dragend',()=>document.querySelectorAll('.over').forEach(x=>x.classList.remove('over')));
+b.addEventListener('click',e=>{const c=e.target.closest('.card');if(c)openTask(c.dataset.id)});
+function move(id,col){const t=S.tasks.find(t=>t.id==id);if(!t||t.col==col)return;
+ const back=fin(t.col)&&!fin(col);w(id,{col,pct:fin(col)?100:back?0:(t.pct||0)});
+ if(back){alert('Regresó a trabajo: indica cuánto % de avance queda en la tarjeta.');setTimeout(()=>openTask(id),200)}}
+function openTask(id){
+ editId=id||null;const t=S.tasks.find(t=>t.id==id)||{title:'',est:1,dev:-1,col:'todo',note:'',pct:0};
+ $('ti').value=t.title;$('es').value=t.est;$('nt').value=t.note||'';$('pc').value=t.pct||0;
+ $('dv').innerHTML='<option value="-1">Sin asignar</option>'+S.devs.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join('');$('dv').value=t.dev;
+ $('cl').innerHTML=COLS.map(([c,n])=>`<option value="${c}">${n}</option>`).join('');$('cl').value=t.col;
+ $('del').style.display=id?'':'none';$('dt').showModal();$('ti').focus();
+}
+function saveTask(){
+ const title=$('ti').value.trim();if(!title){$('ti').focus();return}
+ const col=$('cl').value;if(!hasMeta)saveMeta();
+ w(editId||'t'+Date.now(),{title,est:+$('es').value||0,dev:+$('dv').value,col,note:$('nt').value.trim(),pct:fin(col)?100:Math.min(100,Math.max(0,+$('pc').value||0))});
+ $('dt').close();
+}
+function delTask(){if(confirm('¿Eliminar esta tarea?'))remove(R('tasks/'+editId));$('dt').close()}
+function saveMeta(){set(R('meta'),{name:S.name,start:S.start,end:S.end,devs:S.devs})}
+function openCfg(){$('cn').value=S.name;$('cs').value=S.start;$('ce').value=S.end;S.devs.forEach((n,i)=>$('n'+i).value=n);$('dc').showModal()}
+function saveCfg(){
+ if(!$('cs').value||!$('ce').value||$('ce').value<$('cs').value){alert('Revisa las fechas: el fin debe ser posterior al inicio.');return}
+ S.name=$('cn').value.trim()||'Sprint';S.start=$('cs').value;S.end=$('ce').value;
+ S.devs=[0,1,2].map(i=>$('n'+i).value.trim()||'Dev '+(i+1));$('dc').close();saveMeta();
+}
+function exp(){
+ const o={name:S.name,start:S.start,end:S.end,devs:S.devs,tasks:S.tasks};
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:'text/plain'}));a.download='sprint-datos.txt';a.click();
+}
+$('fi').addEventListener('change',e=>{
+ const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+ rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d.tasks||!d.devs)throw 0;
+  if(!confirm('Esto REEMPLAZA el tablero compartido del equipo. ¿Continuar?'))return;
+  const tasks={};d.tasks.forEach((t,i)=>tasks['t'+(t.id||Date.now()+i)]={title:t.title,est:+t.est||0,dev:t.dev??-1,col:t.col=='review'?'done':(t.col||'todo'),note:t.note||'',pct:t.pct||0});
+  set(R(),{meta:{name:d.name,start:d.start,end:d.end,devs:d.devs},tasks,snap:{}})}catch(x){alert('El archivo no tiene el formato esperado.')}};
+ rd.readAsText(f);e.target.value='';
+});
+Object.assign(window,{openTask,saveTask,delTask,openCfg,saveCfg,exp,askCode});
+</script></body></html>
