@@ -44,6 +44,7 @@ input,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);
  <nav>
   <button class="p ed" onclick="openTask()">Nueva tarea</button>
   <a class="btn" id="bd" href="burndown.html">Ver burndown</a>
+  <a class="btn" href="qa.html">Tablero QA</a>
   <button class="ed" onclick="openCfg()">Sprint y equipo</button>
   <button class="ed" onclick="closeSprint()">Cerrar sprint</button>
   <button onclick="openHist()">Historial</button>
@@ -60,6 +61,7 @@ input,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);
  <label>Tarea</label><input id="ti">
  <div class="g"><div><label>Estimación (horas)</label><input id="es" type="number" min="0" step="0.5"></div>
  <div><label>Responsable</label><select id="dv"></select></div></div>
+ <label>Horas de pruebas QA (estimadas)</label><input id="qe" type="number" min="0" step="0.5">
  <label>% de avance (en Hecho o Aprobado cuenta 100%)</label><input id="pc" type="number" min="0" max="100" step="5">
  <label>Columna</label><select id="cl"></select>
  <label>Notas</label><textarea id="nt" rows="3" placeholder="Detalles, bloqueos, comentarios de QA…"></textarea>
@@ -76,13 +78,13 @@ input,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);
 </dialog>
 
 <dialog id="dl"><label>Correo</label><input id="em" type="email"><label>Contraseña</label><input id="pw" type="password">
- <div class="r"><button class="p" onclick="doLogin()">Entrar</button><button onclick="dl.close()">Cancelar</button></div></dialog>
+ <div class="r"><button class="p" onclick="doLogin()">Entrar</button><button onclick="dl.close()">Cancelar</button><span class="sp"></span><button onclick="resetPw()">Olvidé mi contraseña</button></div></dialog>
 <dialog id="dh"><b>Sprints cerrados</b><div id="hl"></div><div class="r"><button onclick="dh.close()">Cerrar</button></div></dialog>
 <script src="config.js"></script>
 <script type="module">
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {getDatabase,ref,onValue,update,set,remove} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
-import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,sendPasswordResetEmail} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 const COLS=[['todo','Por hacer'],['doing','En progreso'],['done','Hecho (en QA)'],['approved','Aprobado']];
 const fin=c=>c=='done'||c=='approved',$=id=>document.getElementById(id),sum=a=>a.reduce((s,t)=>s+(+t.est||0),0);
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -98,22 +100,28 @@ $('bd').href='burndown.html?c='+code;
 const app=initializeApp(FB_CONFIG),db=getDatabase(app),R=p=>ref(db,'boards/'+code+(p?'/'+p:''));
 const DEF='2026-10-12,2026-11-02,2026-11-16,2026-12-08,2026-12-25';
 let S={name:'Sprint 1',start:iso(new Date()),end:iso(new Date(Date.now()+12096e5)),devs:['Dev 1','Dev 2','Dev 3'],tasks:[],off:DEF},hasMeta=false,editId=null,RAW={},user=null;
-const AUTH=!!FB_CONFIG.apiKey&&!FB_CONFIG.apiKey.includes('PEGA'),auth=AUTH?getAuth(app):null,can=()=>!AUTH||!!user;
+const AUTH=!!FB_CONFIG.apiKey&&!FB_CONFIG.apiKey.includes('PEGA'),auth=AUTH?getAuth(app):null,can=()=>!AUTH||(!!user&&(!FB_CONFIG.DEV_EMAILS||FB_CONFIG.DEV_EMAILS.includes(user.email)));
+const r1=v=>Math.round(v*10)/10,qaP=v=>{const q=(v.qa&&v.qa.tasks)||{};let e=0,r=0;Object.entries(v.tasks||{}).forEach(([id,t])=>{const k=q[id],a=k?(+k.est||0):(+t.qaEst||0);e+=a;r+=k?(k.col=='done'?0:a*(1-(k.pct||0)/100)):a});return[e,r1(r)]};
 function applyMode(){document.body.classList.toggle('ro',!can());$('lg').style.display=AUTH?'':'none';$('lg').textContent=user?'Cerrar sesión ('+user.email.split('@')[0]+')':'Iniciar sesión';render()}
 if(AUTH)onAuthStateChanged(auth,u=>{user=u;applyMode()});else applyMode();
 function authBtn(){user?signOut(auth):$('dl').showModal()}
+async function resetPw(){const e=$('em').value.trim();if(!e){alert('Escribe tu correo en el campo de arriba.');return}try{await sendPasswordResetEmail(auth,e);alert('Te enviamos un correo para restablecer la contraseña.')}catch(x){alert('No se pudo enviar el correo.')}}
 async function doLogin(){try{await signInWithEmailAndPassword(auth,$('em').value.trim(),$('pw').value);$('dl').close();$('pw').value=''}catch(e){alert('Correo o contraseña incorrectos.')}}
 onValue(ref(db,'.info/connected'),x=>$('st').textContent=x.val()?'● En línea (cambios en vivo)':'○ Sin conexión');
 onValue(R(),x=>{const v=x.val()||{},m=v.meta;RAW=v;hasMeta=!!m;
  if(m)Object.assign(S,{name:m.name,start:m.start,end:m.end,devs:m.devs,off:m.off==null?DEF:m.off});
- S.tasks=Object.entries(v.tasks||{}).map(([id,t])=>({...t,id}));render();
- const d=iso(new Date()),q=rem();if(can()&&S.tasks.length&&(v.snap||{})[d]!==q)set(R('snap/'+d),q)});
+ const qk=(v.qa&&v.qa.tasks)||{};
+ S.tasks=Object.entries(v.tasks||{}).map(([id,t])=>({...t,id,ec:t.col=='done'&&qk[id]&&qk[id].col=='done'?'approved':t.col}));render();
+ if(can())S.tasks.forEach(t=>{const k=qk[t.id];
+  if(fin(t.col)&&!k)update(R('qa/tasks/'+t.id),{title:t.title,note:t.note||'',est:t.qaEst||0,devBy:t.dev,dev:-1,pct:0,col:t.col=='approved'?'done':'todo'});
+  if(k&&k.ret&&t.col=='done'){update(R('tasks/'+t.id),{col:'doing',pct:90,qaEst:k.est||t.qaEst||0,note:(t.note||'')+'\n↩ QA: '+k.ret});remove(R('qa/tasks/'+t.id))}});
+ const d=iso(new Date()),q=rem();if(can()&&S.tasks.length){if((v.snap||{})[d]!==q)set(R('snap/'+d),q);const tr=r1(q+qaP(v)[1]);if(((v.qa||{}).tot||{})[d]!==tr)set(R('qa/tot/'+d),tr)}});
 function render(){
  $('t').textContent=S.name;$('r').textContent=fmt(S.start)+' al '+fmt(S.end);
  const tot=sum(S.tasks),dn=Math.round((tot-rem())*10)/10,p=tot?Math.round(dn/tot*100):0;
  $('pb').style.width=p+'%';$('s').textContent=dn+' de '+tot+' h de avance ('+p+'%)';
  $('b').innerHTML=COLS.map(([c,n])=>{
-  const ts=S.tasks.filter(t=>t.col==c);
+  const ts=S.tasks.filter(t=>t.ec==c);
   return `<section class="col" data-c="${c}"><h3>${n}<span>${ts.length} tareas · ${sum(ts)} h</span></h3>`+
   (ts.map(t=>`<div class="card" draggable="${can()}" data-id="${t.id}" style="--c:${t.dev<0?'var(--mu)':'var(--d'+t.dev+')'}"><b>${esc(t.title)}</b>${t.note?`<div class="nt">${esc(t.note)}</div>`:''}<div class="m"><span>${t.dev<0?'Sin asignar':esc(S.devs[t.dev]||'')}</span><span>${t.est} h${t.pct&&!fin(c)?' · '+t.pct+'%':''}</span></div>${t.pct&&!fin(c)?`<div class="pb"><i style="width:${t.pct}%"></i></div>`:''}</div>`).join('')||'<div class="empty">Arrastra tareas aquí</div>')+'</section>';
  }).join('');
@@ -124,20 +132,20 @@ b.addEventListener('dragover',e=>{const c=e.target.closest('.col');if(c){e.preve
 b.addEventListener('drop',e=>{e.preventDefault();const c=e.target.closest('.col');if(c)move(e.dataTransfer.getData('text'),c.dataset.c)});
 b.addEventListener('dragend',()=>document.querySelectorAll('.over').forEach(x=>x.classList.remove('over')));
 b.addEventListener('click',e=>{const c=e.target.closest('.card');if(c&&can())openTask(c.dataset.id)});
-function move(id,col){const t=S.tasks.find(t=>t.id==id);if(!can()||!t||t.col==col)return;
- const back=fin(t.col)&&!fin(col);w(id,{col,pct:fin(col)?100:back?0:(t.pct||0)});
+function move(id,col){const t=S.tasks.find(t=>t.id==id);if(!can()||!t||t.col==col)return;if(col=='approved'){alert('«Aprobado» lo marca QA desde su tablero.');return}
+ const back=fin(t.col)&&!fin(col);if(back)remove(R('qa/tasks/'+id));w(id,{col,pct:fin(col)?100:back?0:(t.pct||0)});
  if(back){alert('Regresó a trabajo: indica cuánto % de avance queda en la tarjeta.');setTimeout(()=>openTask(id),200)}}
 function openTask(id){
  editId=id||null;const t=S.tasks.find(t=>t.id==id)||{title:'',est:1,dev:-1,col:'todo',note:'',pct:0};
  $('ti').value=t.title;$('es').value=t.est;$('nt').value=t.note||'';$('pc').value=t.pct||0;
  $('dv').innerHTML='<option value="-1">Sin asignar</option>'+S.devs.map((n,i)=>`<option value="${i}">${esc(n)}</option>`).join('');$('dv').value=t.dev;
- $('cl').innerHTML=COLS.map(([c,n])=>`<option value="${c}">${n}</option>`).join('');$('cl').value=t.col;
+ $('qe').value=t.qaEst||0;$('cl').innerHTML=COLS.filter(c=>c[0]!='approved').map(([c,n])=>`<option value="${c}">${n}</option>`).join('');$('cl').value=t.col=='approved'?'done':t.col;
  $('del').style.display=id?'':'none';$('dt').showModal();$('ti').focus();
 }
 function saveTask(){
  const title=$('ti').value.trim();if(!title){$('ti').focus();return}
- const col=$('cl').value;if(!hasMeta)saveMeta();
- w(editId||'t'+Date.now(),{title,est:+$('es').value||0,dev:+$('dv').value,col,note:$('nt').value.trim(),pct:fin(col)?100:Math.min(100,Math.max(0,+$('pc').value||0))});
+ const col=$('cl').value;if(!hasMeta)saveMeta();if(editId&&!fin(col))remove(R('qa/tasks/'+editId));
+ w(editId||'t'+Date.now(),{title,est:+$('es').value||0,dev:+$('dv').value,col,note:$('nt').value.trim(),qaEst:+$('qe').value||0,pct:fin(col)?100:Math.min(100,Math.max(0,+$('pc').value||0))});
  $('dt').close();
 }
 function delTask(){if(confirm('¿Eliminar esta tarea?'))remove(R('tasks/'+editId));$('dt').close()}
@@ -170,5 +178,5 @@ $('fi').addEventListener('change',e=>{
   update(R(),{meta:{name:d.name,start:d.start,end:d.end,devs:d.devs,off:d.off==null?DEF:d.off},tasks,snap:d.snap||{}})}catch(x){alert('El archivo no tiene el formato esperado.')}};
  rd.readAsText(f);e.target.value='';
 });
-Object.assign(window,{openTask,saveTask,delTask,openCfg,saveCfg,exp,askCode,closeSprint,openHist,histDl,authBtn,doLogin});
+Object.assign(window,{resetPw,openTask,saveTask,delTask,openCfg,saveCfg,exp,askCode,closeSprint,openHist,histDl,authBtn,doLogin});
 </script></body></html>
