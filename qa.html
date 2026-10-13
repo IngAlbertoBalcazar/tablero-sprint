@@ -34,6 +34,7 @@ textarea{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);bord
 .nt{color:var(--mu);font-size:13px;margin-top:4px;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 body.ro .ed{display:none}body.ro .card{cursor:default}
 .hi{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.card b a{color:var(--ac);text-decoration:none}.card b a:hover{text-decoration:underline}
 .pb{height:5px;background:var(--col);border-radius:3px;margin-top:6px;overflow:hidden}.pb i{display:block;height:100%;background:var(--ac)}
 input,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx)}
 .r{display:flex;gap:8px;margin-top:16px}.r .sp{flex:1}
@@ -73,6 +74,7 @@ import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,sendPasswo
 const COLS=[['todo','Por hacer'],['doing','En progreso'],['done','Terminado']],$=id=>document.getElementById(id),C=window.FB_CONFIG||{};
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const fmt=s=>s.split('-').reverse().join('/'),r1=v=>Math.round(v*10)/10,fin=c=>c=='done'||c=='approved';
+const jl=t=>/^[A-Za-z]+-\d+$/.test(t.trim())?`<a href="https://sitis-sas.atlassian.net/browse/${t.trim().toUpperCase()}" target="_blank" rel="noopener">${esc(t)} ↗</a>`:esc(t);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const qaP=v=>{const q=(v.qa&&v.qa.tasks)||{};let e=0,r=0;Object.entries(v.tasks||{}).forEach(([id,t])=>{const k=q[id],a=k?(+k.est||0):(+t.qaEst||0);e+=a;r+=k?(k.col=='done'?0:a*(1-(k.pct||0)/100)):a});return[e,r1(r)]};
 const devR=v=>{let r=0;Object.values(v.tasks||{}).forEach(t=>{r+=fin(t.col)?0:t.est*(1-(t.pct||0)/100)});return r1(r)};
@@ -102,14 +104,14 @@ function render(){
  const tot=S.tasks.reduce((s,t)=>s+(+t.est||0),0),rm=S.tasks.reduce((s,t)=>s+(t.col=='done'?0:t.est*(1-(t.pct||0)/100)),0),p=tot?Math.round((tot-rm)/tot*100):0;
  $('pb').style.width=p+'%';$('s').textContent=r1(tot-rm)+' de '+tot+' h de pruebas ('+p+'%)';
  $('b').innerHTML=COLS.map(([c,n])=>{const ts=S.tasks.filter(t=>t.col==c);
-  return `<section class="col" data-c="${c}"><h3>${n}<span>${ts.length} tareas · ${ts.reduce((s,t)=>s+(+t.est||0),0)} h</span></h3>`+(ts.map(t=>`<div class="card" draggable="${can()}" data-id="${t.id}" style="--c:${t.dev<0?'var(--mu)':'var(--d'+t.dev+')'}"><b>${esc(t.title)}</b>${t.note?`<div class="nt">${esc(t.note)}</div>`:''}<div class="m"><span>${t.dev<0?'Sin asignar':esc(S.devs[t.dev]||'')} · de ${esc(S.dv[t.devBy]||'—')}</span><span>${t.est?t.est+' h':'<span style="color:var(--d1)">sin horas</span>'}${t.pct&&c!='done'?' · '+t.pct+'%':''}</span></div>${t.pct&&c!='done'?`<div class="pb"><i style="width:${t.pct}%"></i></div>`:''}</div>`).join('')||'<div class="empty">Sin tarjetas</div>')+'</section>'}).join('');
+  return `<section class="col" data-c="${c}"><h3>${n}<span>${ts.length} tareas · ${ts.reduce((s,t)=>s+(+t.est||0),0)} h</span></h3>`+(ts.map(t=>`<div class="card" draggable="${can()}" data-id="${t.id}" style="--c:${t.dev<0?'var(--mu)':'var(--d'+t.dev+')'}"><b>${jl(t.title)}</b>${t.note?`<div class="nt">${esc(t.note)}</div>`:''}<div class="m"><span>${t.dev<0?'Sin asignar':esc(S.devs[t.dev]||'')} · de ${esc(S.dv[t.devBy]||'—')}</span><span>${t.est?t.est+' h':'<span style="color:var(--d1)">sin horas</span>'}${t.pct&&c!='done'?' · '+t.pct+'%':''}</span></div>${t.pct&&c!='done'?`<div class="pb"><i style="width:${t.pct}%"></i></div>`:''}</div>`).join('')||'<div class="empty">Sin tarjetas</div>')+'</section>'}).join('');
 }
 const b=$('b');
 b.addEventListener('dragstart',e=>{const c=e.target.closest('.card');if(c)e.dataTransfer.setData('text',c.dataset.id)});
 b.addEventListener('dragover',e=>{const c=e.target.closest('.col');if(c){e.preventDefault();document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));c.classList.add('over')}});
 b.addEventListener('drop',e=>{e.preventDefault();const c=e.target.closest('.col');if(c)move(e.dataTransfer.getData('text'),c.dataset.c)});
 b.addEventListener('dragend',()=>document.querySelectorAll('.over').forEach(x=>x.classList.remove('over')));
-b.addEventListener('click',e=>{const c=e.target.closest('.card');if(c&&can())openTask(c.dataset.id)});
+b.addEventListener('click',e=>{if(e.target.closest('a'))return;const c=e.target.closest('.card');if(c&&can())openTask(c.dataset.id)});
 function move(id,col){const t=S.tasks.find(t=>t.id==id);if(!can()||!t||t.col==col)return;update(R('tasks/'+id),{col,pct:col=='done'?100:t.col=='done'?0:(t.pct||0)})}
 function openTask(id){editId=id;const t=S.tasks.find(t=>t.id==id);if(!t)return;
  $('ti').textContent=t.title;$('es').value=t.est||0;$('pc').value=t.pct||0;$('nt').value=t.note||'';
