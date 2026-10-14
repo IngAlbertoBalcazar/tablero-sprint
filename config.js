@@ -4,5 +4,6 @@ window.FB_CONFIG = {
   apiKey: "AIzaSyAk6zW_ZrJdujC9vA9c9Zp4559D0gcsC40",
   // Quién puede editar cada tablero (los demás con sesión solo ven)
   DEV_EMAILS: ["alberto.balcazar@sitis.com.co", "andrea.inchima@sitis.com.co", "jose.martos@sitis.com.co"],
-  QA_EMAILS: ["alejandra.munoz@sitis.com.co", "maribel.vivas@sitis.com.co"]
+  QA_EMAILS: ["alejandra.munoz@sitis.com.co", "maribel.vivas@sitis.com.co"],
+  PROD_EMAILS: ["cesar.tejada@sitis.com.co", "rene.caicedo@sitis.com.co"]
 };
