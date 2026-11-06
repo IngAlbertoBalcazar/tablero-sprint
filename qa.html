@@ -62,7 +62,7 @@ input,select{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--bd);
  <div class="r"><button class="p" onclick="saveTask()">Guardar</button><button onclick="dt.close()">Cancelar</button><span class="sp"></span><button onclick="back()">Devolver a desarrollo</button></div></dialog>
 <dialog id="dc"><label>Nombre del sprint QA</label><input id="cn">
  <div class="g"><div><label>Inicio</label><input id="cs" type="date"></div><div><label>Fin</label><input id="ce" type="date"></div></div>
- <label>Integrantes QA</label><input id="n0"><input id="n1" style="margin-top:6px">
+ <label>Integrantes QA</label><input id="n0"><input id="n1" style="margin-top:6px"><input id="n2" style="margin-top:6px" placeholder="Tercera persona (opcional)">
  <label>Días no laborables (AAAA-MM-DD, uno por línea)</label><textarea id="of" rows="3"></textarea>
  <div class="r"><button class="p" onclick="saveCfg()">Guardar</button><button onclick="dc.close()">Cancelar</button></div></dialog>
 <dialog id="dl"><label>Correo</label><input id="em" type="email"><label>Contraseña</label><input id="pw" type="password">
@@ -122,9 +122,9 @@ function saveTask(){const col=$('cl').value;
  update(R('tasks/'+editId),{dev:+$('dv').value,est:+$('es').value||0,col,note:$('nt').value.trim(),pct:col=='done'?100:Math.min(100,Math.max(0,+$('pc').value||0))});$('dt').close()}
 function back(){const m=(prompt('Motivo de la devolución a desarrollo:')||'').trim();if(m){update(R('tasks/'+editId),{ret:m});$('dt').close()}}
 const meta=()=>({name:S.name,start:S.start,end:S.end,devs:S.devs,off:S.off});
-function openCfg(){$('cn').value=S.name;$('cs').value=S.start;$('ce').value=S.end;$('n0').value=S.devs[0];$('n1').value=S.devs[1];$('of').value=(S.off||'').split(',').join('\n');$('dc').showModal()}
+function openCfg(){$('cn').value=S.name;$('cs').value=S.start;$('ce').value=S.end;$('n0').value=S.devs[0];$('n1').value=S.devs[1];$('n2').value=S.devs[2]||'';$('of').value=(S.off||'').split(',').join('\n');$('dc').showModal()}
 function saveCfg(){if(!$('cs').value||!$('ce').value||$('ce').value<$('cs').value){alert('Revisa las fechas.');return}
- S.name=$('cn').value.trim()||'QA Sprint';S.start=$('cs').value;S.end=$('ce').value;S.devs=[0,1].map(i=>$('n'+i).value.trim()||'QA '+(i+1));
+ S.name=$('cn').value.trim()||'QA Sprint';S.start=$('cs').value;S.end=$('ce').value;S.devs=[0,1,2].map(i=>$('n'+i).value.trim()||(i<2?'QA '+(i+1):'')).filter(Boolean);
  S.off=($('of').value.match(/\d{4}-\d{2}-\d{2}/g)||[]).join(',');$('dc').close();set(R('meta'),meta())}
 function closeQA(){if(!can()||!confirm('¿Cerrar el sprint QA? Se guarda el consolidado (y se descarga un .txt) y se limpia el tablero QA.'))return;
  const q=V.qa||{},key=iso(new Date())+'_'+Date.now().toString(36),rec={closedAt:iso(new Date()),dev:{meta:V.meta||null,tasks:V.tasks||null,snap:V.snap||null},qa:{meta:q.meta||null,tasks:q.tasks||null,snap:q.snap||null,tot:q.tot||null}};
